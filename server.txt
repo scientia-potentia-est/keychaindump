@@ -1,1 +1,1 @@
-http://1.3.3.7/storecredential.php
+http://127.0.0.1/

