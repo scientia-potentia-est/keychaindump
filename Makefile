@@ -8,9 +8,6 @@ SOURCE=keychaindump.c
 keychaindump : keychaindump.o
 	$(CC) $(CFLAGS) $(OBJECTS) -o keychaindump $(LDFLAGS)
 
-# keychaindump.o : keychaindump.c
-# 	cc -c keychaindump.c
-
 .PHONY : clean
 clean :
 	rm $(OBJECTS) keychaindump
